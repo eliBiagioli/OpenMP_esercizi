@@ -4,6 +4,9 @@
 
 # The compiler
 FC = gfortran
+# flag per compilare con OpenMP, altrimenti i comandi di parallelizazione
+# sono visti come commenti
+FCFLAGS = -fopenmp
 # flags for debugging or for maximum performance, comment as necessary
 FCFLAGS = -g -fbounds-check
 FCFLAGS = -O2

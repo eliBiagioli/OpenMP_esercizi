@@ -1,6 +1,11 @@
 program Cent
-	! Programma che implementa il metodo di Lax-Friedrichs
+	! Programma che implementa il metodo "centrato"
 	! per un equazione di Burgers' ==> f(u) = u^2 / 2
+	! che è terribilmente instabile
+	!
+	! Compilare: $ make
+	! Eseguire:  $ ./Cent
+	! Plottare:  $ ./plot.sh
 	
 	implicit none
 
@@ -38,9 +43,11 @@ program Cent
 	allocate (x(n_celle))
 	
 	! Discretizzazione dello spazio
+	!$omp parallel do schedule (dynamic, 1)
 	do i = 1,n_celle
 		x(i) = x_left + dx * (i-1)
 	end do
+	!$omp end parallel do
 	
 	CALL u_init (n_celle,u,x)
 	
@@ -58,6 +65,7 @@ program Cent
 		
 		CALL N_FLUX_computation (n_celle, u_old, flux)
 		
+		!$omp parallel do schedule (dynamic, 1)
 		do i=1,n_celle
 			! Controllo sulla condizione CFL
 			cfl = u(i) * lambda
@@ -76,6 +84,7 @@ program Cent
 			u(i)=  u_old(i) -  lambda * (flux(succ)-flux(i))
 			
 		end do
+		!$omp end parallel do
 		
 		! Stampa, su file di testo, dei risultati ottenuti
 		if ((n-(n/150)*150  ) .EQ. 0) then ! stampa solo un passo ogni 20
@@ -129,18 +138,22 @@ subroutine u_init (N,U,X)
 !	 end do
 	 
     ! CASO (3) : PROBLEMA DI RIEMANN - scalino centrato
-!	 do i=1,N
-!	 	if ( (X(i)<0.5) .AND. (X(i)>-0.5)) then
-!	 		U(i) = 0.5 
-!	 		else
+!    !$omp parallel do     
+!	do i=1,N
+!		if ( (X(i)<0.5) .AND. (X(i)>-0.5)) then
+!			U(i) = 0.5 
+!			else
 !	 			U(i) = 0.0
 !	 	end if
-!	 end do
+!	end do
+!    !$omp end parallel do
 	 
 	! CASO (4) : IMPULSO - funzione continua
+	!$omp parallel do schedule (dynamic, 1)
 	do i=1,N
 		U(i) = 0.5 * exp ( -80 * X(i)**2 )
 	end do
+	!$omp end parallel do
 	
 	! Plot della sluzione iniziale <----> Scrittura su file dei dati
 	OPEN (unit=DatoIniziale, file='DatoIniziale', status='unknown', action='write')
@@ -181,6 +194,7 @@ subroutine N_FLUX_computation (N,U,F)
 	real, dimension(N+1):: F
 	real				:: fL, fC
 
+    !$omp parallel do
 	do i=1,N
 		if (i .EQ. 1) then 
 			prec = N
@@ -193,6 +207,7 @@ subroutine N_FLUX_computation (N,U,F)
 		! Espressione del flusso numerico per schema centrato
 		F(i) = 0.5 * (fL + fC)
 	end do
+	!$omp end parallel do
 	
 	! Supponendo un dominio periodico:
 	F(N+1) = F(1) 
