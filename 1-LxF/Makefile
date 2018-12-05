@@ -3,10 +3,10 @@
 # ======================================================================
 
 # The compiler
-FC = gfortran # flag per compilare con OpenMP, altrimenti i comandi di parallelizazione
-# sono visti come commenti
+FC = gfortran -fopenmp
+# dove "-fopenmp" è una flag per compilare con OpenMP, altrimenti i 
+# comandi di parallelizazione sono visti come commenti
 
-FCFLAGS = -fopenmp
 # flags for debugging or for maximum performance, comment as necessary
 FCFLAGS = -g -fbounds-check
 FCFLAGS = -O2
@@ -19,7 +19,7 @@ LDFLAGS = -llapack -lblas -laf_fortran -lmy
 
 # List of executables to be built within the package
 # PROGRAMS = prog1 prog2 prog3 prog4
-PROGRAMS = Cent
+PROGRAMS = LxF
 
 # "make" builds all
 all: $(PROGRAMS)
