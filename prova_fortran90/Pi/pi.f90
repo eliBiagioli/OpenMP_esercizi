@@ -11,10 +11,11 @@
 !  interval is: (1/n)*4/(1+x*x).              c
 !---------------------------------------------c
 program pigreco
+	USE OMP_LIB
     implicit none
 
     integer(selected_int_kind(18)) :: i 
-    integer(selected_int_kind(18)), parameter :: intervals=1e8
+    integer(selected_int_kind(18)), parameter :: intervals=1e9
     ! 'intervals' := numero di intervalli in cui divido [0,1]
 
     real(kind(1.d0)) :: dx,sum,x

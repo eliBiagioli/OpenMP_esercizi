@@ -2,13 +2,14 @@ program LxF
 	! Programma che implementa il metodo di Lax-Friedrichs
 	! (che sappiamo essere un metodo diffusivo)
 	! per un equazione di Burgers' ==> f(u) = u^2 / 2
+	USE OMP_LIB
 	
 	implicit none
 
 	! Dichiarazione delle variabili
 	real, allocatable   :: u(:), u_interfaceR(:), u_interfaceL(:),  x(:), u_old(:)
 	real				:: fluxL, fluxR, lambda, lambda_inv, cfl
-	integer				:: i, n, prec, succ, j
+	integer				:: i, n, prec, succ, j, n_trs, tr
 	! Spazio
 	real				:: x_left, x_right ! estremi intervallo
 	real				:: dx, len_intervallo
@@ -19,6 +20,8 @@ program LxF
 	! Variabili necessarie per stampare su file i dati
 	CHARACTER(LEN=40) 	:: nome_file        ! Name of the output files
 	CHARACTER(LEN=4) 	:: cont_file , lettera
+	real :: time1, time2
+	real :: time1_c, time2_c
 
 	! Inizializzazione degli estremi del dominio
 	x_left  = -1.0
@@ -30,7 +33,7 @@ program LxF
 	! Inizializzazione delle variabili temporali 
 	t  = 0.0  ! tempo iniziale
 	dt = dx	/ 3						!0.05/4
-	n_timestep = 1500
+	n_timestep = 1000
 	
 	! Allocazione delle variabili
 	allocate (u(n_celle))
@@ -38,13 +41,24 @@ program LxF
 	allocate (u_interfaceL(n_celle+1))
 	allocate (u_interfaceR(n_celle+1))
 	allocate (x(n_celle))
-	
+
+    time1 = OMP_GET_WTIME()
 	! Discretizzazione dello spazio
-	!$omp parallel do
+	!$omp parallel 
+	!$ n_trs = omp_get_num_threads()
+    WRITE(*,*) 'Numero di thread: ', n_trs
+  	!$omp do schedule (dynamic,1)
 	do i = 1,n_celle
+	    !$ n_trs = omp_get_num_threads()
 		x(i) = x_left + dx * (i-1)
+!		!$ tr = OMP_GET_THREAD_NUM()
+!		WRITE (*,*) 'num_trd =', tr, 'cella ', i, '= ', x(i)
 	end do
-	!$omp end parallel do
+	!$omp end do
+	!$omp end parallel 
+    time2 = OMP_GET_WTIME()
+
+    PRINT *, 'Elapsed time ', time2-time1 ,' s'
 	
 	CALL u_init (n_celle,u,x)
 	
@@ -56,13 +70,18 @@ program LxF
 	lambda_inv	= dx / dt 
 	write(*,*) 'dt e dx = ',dt,dx
 	write(*,*) 'lambda = ', lambda
+
+    call cpu_time(time1_c)
+    time1 = OMP_GET_WTIME()
 	
 	do n=1,n_timestep
 		t = t + dt ! incrementiamo il tempo
 		u_old(:) = u(:) ! teniamo memorizzata la soluzione del passo temp. prec. n-1
 		
-		!$omp parallel do private (cfl, prec, succ, fluxL, fluxR)
+		!$omp parallel do private (cfl, prec, succ, fluxL, fluxR) schedule (dynamic,10)
 		do i=1,n_celle
+		    !$ tr = OMP_GET_THREAD_NUM()
+		    WRITE (*,*) 'num_trd =', tr, 'cella ', i
 			! Controllo sulla condizione CFL
 			cfl = u(i) * lambda
 			if ((cfl>1) .OR. (cfl<-1)) then
@@ -91,10 +110,8 @@ program LxF
 		
 		! Stampa, su file di testo, dei risultati ottenuti
 		if ((n-(n/150)*150  ) .EQ. 0) then ! stampa solo un passo ogni 150
-!			write(*,*) 'n = ',n
 			cont_file=lettera(n)
 			nome_file='sol.'//cont_file
-!			write(*,*) 'nome_file', nome_file
 			OPEN(unit=2,FILE=nome_file,status='new',action='write')
 			do j=1,n_celle
 				WRITE(2,*) x(j), u(j)
@@ -104,6 +121,11 @@ program LxF
 			
 		
 	end do
+	
+	call cpu_time(time2_c)
+	time2 = OMP_GET_WTIME()
+	
+	PRINT *, 'Elapsed time ', time2-time1 ,' s and ', time2_c - time1_c, ' s'
 	
 	! Deallocazione delle variabili
 	deallocate (u)
@@ -154,7 +176,7 @@ subroutine u_init (N,U,X)
 	 end do
 	 !$omp end parallel do
 	
-	! Plot della sluzione iniziale <----> Scrittura su file dei dati
+	! Plot della soluzione iniziale <----> Scrittura su file dei dati
 	OPEN (unit=DatoIniziale, file='DatoIniziale', status='unknown', action='write')
 		do i=1,N
 			WRITE(DatoIniziale,*)  X(i), U(i)
